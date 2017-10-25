@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Trello to Tables</title>
+<link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+<body>
+<div class="container">
+  <form>
+    <div class="form-group">
+      <label for="boardId">Board</label>
+      <select class="form-control" id="boardId">
+        <option value="58a4ede7ac2542d227ff1b69" selected>GWELLS scrum board</option>
+        <option value="59cc67cc35d6195a3da5e1c5">GWELLS past sprints</option>
+      </select>
+    </div>
+    <div id="boardListsContainer" class="form-group">
+      <label for="boardLists">List</label>
+      <select class="form-control" id="boardLists"></select>
+    </div>
+    <div class="row">
+      <div class="col-sm-12">
+        <p id="export-csv-container" class="none">
+          <a href="#" id="export-csv" class="btn btn-primary">Export to Excel</a>
+        </p>
+        <table id="listCards" class="table table-hover none">
+          <thead>
+            <tr>
+              <td>Link</td>
+              <td>ID</td>
+              <td>Card #</td>
+              <td>Name</td>
+              <td>Category</td>
+              <td>Title</td>
+              <td>Story points</td>
+              <td>Priority</td>
+              <td>Tags</td>
+              <td>Labels</td>
+              <td>Date created</td>
+              <td>Date previous list</td>
+              <td>Date current list</td>
+              <td>Date last activity</td>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+      </div>
+    </div>
+  </form>
+</div>
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="scripts.js"></script>
+</body>
+</html>

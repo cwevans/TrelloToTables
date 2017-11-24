@@ -1,4 +1,7 @@
 var TrelloMagic = {
+  allCardsText: 'All cards',
+  ajaxDelay: 0, // To slow down the calls to Trello API activity dates for each card
+  ajaxDelayDefault: 100,
   $boardId: $('#boardId'),
   $lists: $('#boardLists'),
   $listsContainer: $('#boardListsContainer'),
@@ -22,6 +25,10 @@ var TrelloMagic = {
   },
   getLists: function() {
     $.getJSON('https://api.trello.com/1/boards/' + this.$boardId.val() + '/lists?fields=name', function(data) {
+      TrelloMagic.$lists.append($('<option>', {
+        value: TrelloMagic.$boardId.val(),
+        text: TrelloMagic.allCardsText
+      }));
       if (data.length) {
         $.each(data, function(i, item) {
           TrelloMagic.$lists.append($('<option>', {
@@ -69,15 +76,29 @@ var TrelloMagic = {
   },
   getDateMoved: function(id) {
     if (!id) return '';
-    $.getJSON('https://api.trello.com/1/cards/' + id + '/actions?filter=updateCard:idList', function(data) {
-      if (!data.length) return;
-      var id = data[0].data.card.id;
-      $('#' + id + ' .datemoved').html(TrelloMagic.formatDate(data[0].date));
-
-      if (data[1]) {
-        $('#' + id + ' .dateprev').html(TrelloMagic.formatDate(data[1].date));
-      }
-    });
+    setTimeout(function () {
+        TrelloMagic.$exportBtn.addClass('disabled');
+        $.getJSON('https://api.trello.com/1/cards/' + id + '/actions?filter=updateCard:idList', function(data) {
+          if (!data.length) return '';
+          var id = data[0].data.card.id;
+          var datePrev, dateMoved = data[0].date, $tr = $('#' + id);
+          
+          $('.datemoved', $tr).html(TrelloMagic.formatDate(dateMoved));
+          
+          if (data[1]) {
+            datePrev = data[1].date;
+            $('.dateprev', $tr).html(TrelloMagic.formatDate(datePrev));
+          }
+          
+          if (datePrev && dateMoved) 
+          	$('.datecycle', $tr).html(TrelloMagic.daysBetween(datePrev, dateMoved));
+        })
+        .always(function(){
+          TrelloMagic.$exportBtn.removeClass('disabled');
+        });
+    }, TrelloMagic.ajaxDelay);
+    
+    TrelloMagic.ajaxDelay += TrelloMagic.ajaxDelayDefault;
   },
   getLabels: function(labels) {
     if (!labels) return '';
@@ -87,9 +108,28 @@ var TrelloMagic = {
     });
     return names.join(', ');
   },
+  getListName: function(id) {
+    if (!id) return '';
+    var name = '';
+    $('option', TrelloMagic.$lists).each(function(idx, val) {
+      if (id === val.value) {
+        name = val.innerText;
+        return false;
+      }
+    });
+    return name;
+  },
   formatDate: function(date) {
     var d = new Date(date);
-    return d ? (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear() : '';
+    return d ? d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() : '';
+  },
+  daysBetween: function(d1,d2) {
+    if (!d1 || !d2) return '';
+    var one_day = 1000*60*60*24;
+    var ms1 = new Date(d1).getTime();
+    var ms2 = new Date(d2).getTime();
+		var diff = ms2-ms1;
+    return Math.round(diff/one_day);
   },
   // Returns story points in title or 0 if not found.
   getStoryPoints: function(title) {
@@ -105,21 +145,31 @@ var TrelloMagic = {
     }
     return storyPoints;
   },
-  getCards: function(listId) {
+  getCards: function(id) {
     this.clearCards();
-    if (!listId) {
-      alert('Choose done list.');
-      return;
-    }
-    $.getJSON('https://api.trello.com/1/lists/' + listId + '/cards', function(data) {
+    if (!id) return;
+    var path = 'lists';
+    
+    this.$exportBtn.addClass('disabled');
+
+    $('option', this.$boardId).each(function() {
+      var val = $(this).val();
+      if (val === id) path = 'boards';
+    });
+
+    $.getJSON('https://api.trello.com/1/' + path + '/' + id + '/cards', function(data) {
       if (!data.length) {
         return;
       }
+      TrelloMagic.$listCards.show();
 
       $.each(data, function(idx, val) {
+        var dateCreated = TrelloMagic.getDateCreated(val.id);
+        var dateLast = TrelloMagic.formatDate(val.dateLastActivity);
         var tr = '<tr id="' + val.id + '">' +
           '<td><a href="' + val.shortUrl + '" target="_blank">' + val.shortUrl + '</a></td>' +
           '<td>' + val.id + '</td>' +
+          '<td>' + TrelloMagic.getListName(val.idList) + '</td>' +
           '<td>' + val.idShort + '</td>' +
           '<td>' + val.name + '</td>' +
           '<td>' + TrelloMagic.getCategory(val.name) + '</td>' +
@@ -128,15 +178,19 @@ var TrelloMagic = {
           '<td>' + TrelloMagic.getPriority(val.name) + '</td>' +
           '<td>' + TrelloMagic.getTags(val.name) + '</td>' +
           '<td>' + TrelloMagic.getLabels(val.labels) + '</td>' +
-          '<td>' + TrelloMagic.getDateCreated(val.id) + '</td>' +
+          '<td class="datecreated">' + dateCreated + '</td>' +
           '<td class="dateprev"></td>' +
-          '<td class="datemoved">' + TrelloMagic.getDateMoved(val.id) + '</td>' +
-          '<td>' + TrelloMagic.formatDate(val.dateLastActivity) + '</td>' +
+          '<td class="datemoved"></td>' +
+          '<td class="datelast">' + dateLast + '</td>' +
+          '<td class="datecycle">'+ TrelloMagic.daysBetween(dateCreated, dateLast) +'</td>' +
           '</tr>';
         TrelloMagic.$listCards.append(tr);
+        TrelloMagic.getDateMoved(val.id);
       });
-      TrelloMagic.$listCards.show();
       TrelloMagic.$exportContainer.show();
+    })
+    .always(function(){
+      TrelloMagic.$exportBtn.removeClass('disabled');
     });
   },
   clearBurndown: function() {
